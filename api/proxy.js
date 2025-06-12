@@ -1,29 +1,30 @@
 export default async function handler(req, res) {
-  const videoUrl = req.query.url;
+  const { url } = req.query;
 
-  if (!videoUrl || !videoUrl.startsWith("http://vod.tuxchannel.mx/")) {
-    return res.status(403).send("❌ URL inválida o dominio no permitido.");
+  if (!url) {
+    res.status(400).send("❌ Parámetro 'url' requerido.");
+    return;
+  }
+
+  const allowedDomain = "vod.tuxchannel.mx";
+  try {
+    const targetUrl = new URL(url);
+    if (!targetUrl.hostname.endsWith(allowedDomain)) {
+      return res.status(403).send("❌ Dominio no permitido.");
+    }
+  } catch (err) {
+    return res.status(400).send("❌ URL inválida.");
   }
 
   try {
-    const response = await fetch(videoUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-      }
-    });
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("❌ No se pudo acceder al video.");
 
-    if (!response.ok) {
-      return res.status(502).send("❌ No se pudo acceder al video.");
-    }
-
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Access-Control-Allow-Methods', '*');
+    res.setHeader("Content-Type", response.headers.get("content-type") || "application/octet-stream");
+    res.setHeader("Access-Control-Allow-Origin", "*");
 
     response.body.pipe(res);
-  } catch (err) {
-    res.status(500).send("❌ Error interno del proxy.");
+  } catch (error) {
+    res.status(500).send(error.message || "❌ Error al obtener el archivo.");
   }
 }
